@@ -1,6 +1,10 @@
 {
-  "name": "maildora_email_campaign",
+  "name": "maildora",
   "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "scripts": {
     "build": "turbo run build",
     "dev": "turbo run dev",
