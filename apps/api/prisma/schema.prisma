@@ -1,0 +1,165 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────
+// AUTH
+// ─────────────────────────────────────────
+
+model User {
+  id       String  @id @default(uuid())
+  email    String  @unique
+  password String
+  name     String?
+
+  senderEmails FromEmail[]
+  contacts     Contact[]
+  campaigns    Campaign[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ─────────────────────────────────────────
+// SENDER
+// ─────────────────────────────────────────
+
+model FromEmail {
+  id       String  @id @default(uuid())
+  email    String
+  verified Boolean @default(false)
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  campaigns Campaign[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([email, userId])
+}
+
+// ─────────────────────────────────────────
+// CONTACTS
+// ─────────────────────────────────────────
+
+model Contact {
+  id    String  @id @default(uuid())
+  email String
+  name  String?
+
+  unsubscribed   Boolean   @default(false)
+  unsubscribedAt DateTime?
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  recipients Recipient[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([email, userId])
+  @@index([userId])
+}
+
+// ─────────────────────────────────────────
+// CAMPAIGNS
+// ─────────────────────────────────────────
+
+model Campaign {
+  id      String @id @default(uuid())
+  subject String
+  body    String @db.Text
+
+  status      CampaignStatus @default(DRAFT)
+  scheduledAt DateTime?
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  senderEmailId String
+  senderEmail   FromEmail @relation(fields: [senderEmailId], references: [id])
+
+  recipients Recipient[]
+  stats      CampaignStats?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([status])
+}
+
+model CampaignStats {
+  id         String   @id @default(uuid())
+  campaignId String   @unique
+  campaign   Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  totalSent Int @default(0)
+  delivered Int @default(0)
+  opened    Int @default(0)
+  clicked   Int @default(0)
+  bounced   Int @default(0)
+  failed    Int @default(0)
+
+  updatedAt DateTime @updatedAt
+}
+
+// ─────────────────────────────────────────
+// RECIPIENTS
+// ─────────────────────────────────────────
+
+model Recipient {
+  id    String @id @default(uuid())
+  email String
+
+  status    EmailStatus @default(PENDING)
+  sentAt    DateTime?
+  openedAt  DateTime?
+  clickedAt DateTime?
+  bouncedAt DateTime?
+
+  campaignId String
+  campaign   Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  contactId String?
+  contact   Contact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([campaignId, email])
+  @@index([campaignId])
+  @@index([status])
+}
+
+// ─────────────────────────────────────────
+// ENUMS
+// ─────────────────────────────────────────
+
+enum CampaignStatus {
+  DRAFT
+  SCHEDULED
+  PROCESSING
+  SENT
+  CANCELLED
+}
+
+enum EmailStatus {
+  PENDING
+  QUEUED
+  SENT
+  DELIVERED
+  OPENED
+  CLICKED
+  BOUNCED
+  FAILED
+  UNSUBSCRIBED
+}

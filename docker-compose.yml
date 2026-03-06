@@ -1,0 +1,68 @@
+
+services:
+
+    web: 
+      build: 
+        context: .
+        dockerfile: apps/web/Dockerfile
+      container_name: maildora_web
+      ports:
+        - "3000:3000"
+      environment:
+        - NEXT_TELEMETRY_DISABLED=1
+        - NODE_ENV=development
+      depends_on:
+        - api
+      restart: unless-stopped
+
+    api:
+      build:
+        context: .
+        dockerfile: apps/api/Dockerfile
+      container_name: maildora_api
+      ports:
+        - "4000:4000"
+
+      environment:
+        - DATABASE_URL= ${DATABASE_URL}
+        - JWT_SECRET= ${JWT_SECRET}
+        - JWT_EXPIRES_IN= ${JWT_EXPIRES_IN}
+        - REDIS_HOST= redis
+        - REDIS_PORT= 6379
+        - BREVO_API_KEY= ${BREVO_API_KEY}
+        - BREVO_WEBHOOK_SECRET= ${BREVO_WEBHOOK_SECRET}
+        - PORT=4000
+        - Node_ENV=development
+      depends_on:
+        redis:
+          condition: service_healthy
+      restart: unless-stopped
+
+    redis:
+      image: redis:7-alpine
+      container_name: maildora_redis
+      ports:
+        - "6379:6379"
+      command: redis-server --appendonly yes
+      volumes:
+        - redis_data:/data
+      restart: unless-stopped
+
+      healthcheck:
+        test: ["CMD", "redis-cli", "ping"]
+        interval: 10s
+        timeout: 5s
+        retries: 5
+
+
+volumes:
+  redis_data:
+        
+
+    
+
+
+
+
+
+
