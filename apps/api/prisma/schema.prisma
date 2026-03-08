@@ -7,48 +7,69 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ─────────────────────────────────────────
-// AUTH
-// ─────────────────────────────────────────
-
+// ─── User ───
 model User {
-  id       String  @id @default(uuid())
-  email    String  @unique
-  password String
-  name     String?
+  id      String  @id  
+  email   String  @unique
+  name    String?
+  avatar  String?
 
-  senderEmails FromEmail[]
-  contacts     Contact[]
-  campaigns    Campaign[]
+  memberships OrganizationMember[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
 
-// ─────────────────────────────────────────
-// SENDER
-// ─────────────────────────────────────────
+// ─── Organization ───
+model Organization {
+  id   String @id @default(uuid())
+  name String
+  slug String @unique
 
+  members    OrganizationMember[]
+  campaigns  Campaign[]
+  contacts   Contact[]
+  fromEmails FromEmail[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ─── Organization Member ───
+model OrganizationMember {
+  id String @id @default(uuid())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  role OrgRole @default(MEMBER)
+
+  createdAt DateTime @default(now())
+
+  @@unique([userId, organizationId])
+}
+
+// ─── From Email ───
 model FromEmail {
   id       String  @id @default(uuid())
   email    String
   verified Boolean @default(false)
 
-  userId String
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   campaigns Campaign[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@unique([email, userId])
+  @@unique([email, organizationId])
 }
 
-// ─────────────────────────────────────────
-// CONTACTS
-// ─────────────────────────────────────────
-
+// ─── Contact ───
 model Contact {
   id    String  @id @default(uuid())
   email String
@@ -57,22 +78,19 @@ model Contact {
   unsubscribed   Boolean   @default(false)
   unsubscribedAt DateTime?
 
-  userId String
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   recipients Recipient[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@unique([email, userId])
-  @@index([userId])
+  @@unique([email, organizationId])
+  @@index([organizationId])
 }
 
-// ─────────────────────────────────────────
-// CAMPAIGNS
-// ─────────────────────────────────────────
-
+// ─── Campaign ───
 model Campaign {
   id      String @id @default(uuid())
   subject String
@@ -81,8 +99,8 @@ model Campaign {
   status      CampaignStatus @default(DRAFT)
   scheduledAt DateTime?
 
-  userId String
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   senderEmailId String
   senderEmail   FromEmail @relation(fields: [senderEmailId], references: [id])
@@ -93,10 +111,11 @@ model Campaign {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([userId])
+  @@index([organizationId])
   @@index([status])
 }
 
+// ─── Campaign Stats ───
 model CampaignStats {
   id         String   @id @default(uuid())
   campaignId String   @unique
@@ -112,10 +131,7 @@ model CampaignStats {
   updatedAt DateTime @updatedAt
 }
 
-// ─────────────────────────────────────────
-// RECIPIENTS
-// ─────────────────────────────────────────
-
+// ─── Recipient ───
 model Recipient {
   id    String @id @default(uuid())
   email String
@@ -140,9 +156,11 @@ model Recipient {
   @@index([status])
 }
 
-// ─────────────────────────────────────────
-// ENUMS
-// ─────────────────────────────────────────
+// ─── Enums ───
+enum OrgRole {
+  ADMIN
+  MEMBER
+}
 
 enum CampaignStatus {
   DRAFT
