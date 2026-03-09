@@ -57,7 +57,7 @@ export class ContactsService {
     });
 
     if (!contact) {
-      throw new NotFoundException('Contact পাওয়া যায়নি');
+      throw new NotFoundException('contact not found');
     }
 
     return contact;
@@ -74,7 +74,7 @@ export class ContactsService {
     });
 
     if (existing) {
-      throw new ConflictException('এই email আগেই আছে');
+      throw new ConflictException('Email already exists');
     }
 
     return this.prisma.contact.create({
