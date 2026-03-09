@@ -6,7 +6,6 @@ WORKDIR /app
 
 COPY apps/web/package.json ./package.json
 
-# ✅ npm দিয়ে install
 RUN npm install
 
 COPY apps/web .

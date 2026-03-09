@@ -1,4 +1,4 @@
-// apps/web/proxy.ts
+// apps/web/middleware.ts
 
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
 
