@@ -2,6 +2,8 @@
 
 FROM node:20-alpine AS builder
 
+RUN apk add --no-cache openssl openssl-dev libc6-compat
+
 WORKDIR /app
 
 COPY apps/api/package.json ./package.json
@@ -20,6 +22,8 @@ RUN npm run build
 
 # ─── Runner ───
 FROM node:20-alpine AS runner
+
+RUN apk add --no-cache openssl libc6-compat
 
 WORKDIR /app
 

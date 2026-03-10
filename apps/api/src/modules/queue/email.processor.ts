@@ -9,7 +9,7 @@ import {
   EMAIL_JOB,
   SendCampaignEmailJob,
 } from './email.queue';
-import { EmailStatus, CampaignStatus } from '@prisma/client';
+import { EmailStatus } from '@prisma/client';
 
 @Processor(EMAIL_QUEUE)
 export class EmailProcessor extends WorkerHost {
@@ -21,6 +21,8 @@ export class EmailProcessor extends WorkerHost {
   }
 
   async process(job: Job): Promise<void> {
+    console.log('🔄 Job processing:', job.name, job.id);
+
     if (job.name === EMAIL_JOB.SEND_CAMPAIGN_EMAIL) {
       await this.handleSendCampaignEmail(job.data as SendCampaignEmailJob);
     }
@@ -33,7 +35,6 @@ export class EmailProcessor extends WorkerHost {
       data;
 
     try {
-      // Recipient status → PROCESSING
       await this.prisma.recipient.update({
         where: { id: recipientId },
         data: { status: EmailStatus.QUEUED },
@@ -41,7 +42,6 @@ export class EmailProcessor extends WorkerHost {
 
       await this.sendViaBrevo({ to, subject, body, fromEmail, fromName });
 
-      // Recipient status → SENT
       await this.prisma.recipient.update({
         where: { id: recipientId },
         data: {
@@ -50,7 +50,6 @@ export class EmailProcessor extends WorkerHost {
         },
       });
 
-      // CampaignStats update 
       await this.prisma.campaignStats.update({
         where: { campaignId },
         data: {
@@ -62,13 +61,11 @@ export class EmailProcessor extends WorkerHost {
     } catch (err) {
       console.error(`Email failed to: ${to}`, err);
 
-      // Recipient status → FAILED
       await this.prisma.recipient.update({
         where: { id: recipientId },
         data: { status: EmailStatus.FAILED },
       });
 
-      // CampaignStats failed count increment
       await this.prisma.campaignStats.update({
         where: { campaignId },
         data: {
@@ -80,19 +77,6 @@ export class EmailProcessor extends WorkerHost {
     }
   }
 
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 10000);
-
-  const response = await fetch('https://api.brevo.com/v3/smtp/email', {
-   method: 'POST',
-   signal: controller.signal,
-   headers: { ... },
-   body: JSON.stringify({ ... }),
- });
-
-clearTimeout(timeout);
-
-  // Send email via Brevo API
   private async sendViaBrevo(params: {
     to: string;
     subject: string;
@@ -102,26 +86,34 @@ clearTimeout(timeout);
   }): Promise<void> {
     const apiKey = this.configService.get('BREVO_API_KEY');
 
-    const response = await fetch('https://api.brevo.com/v3/smtp/email', {
-      method: 'POST',
-      headers: {
-        'api-key': apiKey,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        sender: {
-          name: params.fromName,
-          email: params.fromEmail,
-        },
-        to: [{ email: params.to }],
-        subject: params.subject,
-        htmlContent: params.body,
-      }),
-    });
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000);
 
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(`Brevo error: ${error.message ?? 'Unknown error'}`);
+    try {
+      const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+        method: 'POST',
+        signal: controller.signal,
+        headers: {
+          'api-key': apiKey,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          sender: {
+            name: params.fromName,
+            email: params.fromEmail,
+          },
+          to: [{ email: params.to }],
+          subject: params.subject,
+          htmlContent: params.body,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(`Brevo error: ${error.message ?? 'Unknown error'}`);
+      }
+    } finally {
+      clearTimeout(timeout);
     }
   }
 }

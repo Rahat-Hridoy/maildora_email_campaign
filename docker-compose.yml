@@ -1,19 +1,57 @@
-
 services:
 
-    web: 
-      build: 
+# ===============================================================
+# nginx 
+# ===============================================================
+
+    nginx:
+      build:
+        context: ./docker/nginx
+        dockerfile: Dockerfile
+      container_name: maildora_nginx
+      ports:
+        - "80:80"
+      depends_on:
+        api:
+          condition: service_healthy   
+        web:
+          condition: service_healthy   
+      restart: unless-stopped
+      networks:
+        - maildora_network
+
+# ===============================================================
+# WEB
+# ===============================================================
+
+    web:
+      build:
         context: .
         dockerfile: apps/web/Dockerfile
       container_name: maildora_web
       ports:
-        - "3000:3000"
+        - "3000"
+      env_file:
+        - apps/web/.env.local
       environment:
         - NEXT_TELEMETRY_DISABLED=1
         - NODE_ENV=development
       depends_on:
-        - api
+        api:
+          condition: service_healthy
       restart: unless-stopped
+      networks:
+        - maildora_network
+      healthcheck:
+        test: ["CMD-SHELL", "node -e \"require('http').get('http://localhost:3000', r => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))\""]
+        interval: 15s
+        timeout: 5s
+        retries: 5
+        start_period: 30s
+
+# ===============================================================
+# API 
+# ===============================================================
 
     api:
       build:
@@ -21,22 +59,35 @@ services:
         dockerfile: apps/api/Dockerfile
       container_name: maildora_api
       ports:
-        - "4000:4000"
-
+        - "4000"
+      env_file:
+        - apps/api/.env
       environment:
-        - DATABASE_URL= ${DATABASE_URL}
-        - JWT_SECRET= ${JWT_SECRET}
-        - JWT_EXPIRES_IN= ${JWT_EXPIRES_IN}
-        - REDIS_HOST= redis
-        - REDIS_PORT= 6379
-        - BREVO_API_KEY= ${BREVO_API_KEY}
-        - BREVO_WEBHOOK_SECRET= ${BREVO_WEBHOOK_SECRET}
+        - DATABASE_URL=${DATABASE_URL}
+        - JWT_SECRET=${JWT_SECRET}
+        - JWT_EXPIRES_IN=${JWT_EXPIRES_IN}
+        - REDIS_HOST=redis
+        - REDIS_PORT=6379
+        - BREVO_API_KEY=${BREVO_API_KEY}
+        - BREVO_WEBHOOK_SECRET=${BREVO_WEBHOOK_SECRET}
         - PORT=4000
-        - Node_ENV=development
+        - NODE_ENV=development
       depends_on:
         redis:
           condition: service_healthy
       restart: unless-stopped
+      networks:
+        - maildora_network
+      healthcheck:
+        test: ["CMD", "wget", "-qO-", "http://localhost:4000/health"]
+        interval: 10s
+        timeout: 5s
+        retries: 5
+        start_period: 20s  
+
+# ===============================================================
+# REDIS
+# ===============================================================
 
     redis:
       image: redis:7-alpine
@@ -47,22 +98,50 @@ services:
       volumes:
         - redis_data:/data
       restart: unless-stopped
-
+      networks:
+        - maildora_network
       healthcheck:
         test: ["CMD", "redis-cli", "ping"]
         interval: 10s
         timeout: 5s
         retries: 5
 
+  # ================================================================
+  # LOAD BALANCER SETUP
+  # ================================================================
+    # api1:
+    #   build:
+    #     context: .
+    #     dockerfile: apps/api/Dockerfile
+    #   expose:
+    #     - "4000"
+    #   env_file:
+    #     - apps/api/.env
+    #   depends_on:
+    #     redis:
+    #       condition: service_healthy
+    #   restart: unless-stopped
+    #   networks:
+    #     - maildora_network
+    # api2:
+    #   build:
+    #     context: .
+    #     dockerfile: apps/api/Dockerfile
+    #   expose:
+    #     - "4000"
+    #   env_file:
+    #     - apps/api/.env
+    #   depends_on:
+    #     redis:
+    #       condition: service_healthy
+    #   restart: unless-stopped
+    #   networks:
+    #     - maildora_network
+
 
 volumes:
   redis_data:
-        
 
-    
-
-
-
-
-
-
+networks:
+  maildora_network:
+    driver: bridge

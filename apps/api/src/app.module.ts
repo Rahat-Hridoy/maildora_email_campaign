@@ -9,6 +9,8 @@ import { ContactsModule } from './modules/contacts/contacts.module';
 import { CampaignsModule } from './modules/campaigns/campaigns.module';
 import { SenderEmailsModule } from './modules/sender-emails/sender-emails.module';
 import { QueueModule } from './modules/queue/queue.module';
+import { AppController } from './app.controller';
+import { AppService } from './app.service';
 
 @Module({
   imports: [
@@ -19,7 +21,7 @@ import { QueueModule } from './modules/queue/queue.module';
     SenderEmailsModule,
     QueueModule,
   ],
-  controllers: [ClerkWebhookController],
-  providers: [PrismaService],
+  controllers: [ClerkWebhookController, AppController],
+  providers: [PrismaService, AppService],
 })
 export class AppModule {}
