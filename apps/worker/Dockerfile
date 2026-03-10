@@ -4,12 +4,10 @@ RUN apk add --no-cache openssl openssl-dev libc6-compat
 WORKDIR /app
 
 COPY packages/queue ./packages/queue
-COPY apps/api/package.json ./
-COPY apps/api/src ./src
+COPY apps/worker/package.json ./
+COPY apps/worker/tsconfig.json ./
+COPY apps/worker/src ./src
 COPY apps/api/prisma ./prisma
-COPY apps/api/tsconfig.json ./
-COPY apps/api/tsconfig.build.json ./
-COPY apps/api/nest-cli.json ./
 
 RUN npm install ./packages/queue
 RUN npm install
@@ -26,8 +24,7 @@ WORKDIR /app
 COPY --from=builder /app/package.json ./
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/packages ./packages
 
-EXPOSE 4000
-CMD ["node", "dist/src/main.js"]
+ENV NODE_ENV=production
+CMD ["node", "dist/main.js"]

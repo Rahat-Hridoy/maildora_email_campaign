@@ -83,7 +83,36 @@ services:
         interval: 10s
         timeout: 5s
         retries: 5
-        start_period: 20s  
+        start_period: 20s 
+
+# ===============================================================
+# WORKER
+# ===============================================================
+
+    worker:
+      build:
+        context: .
+        dockerfile: apps/worker/Dockerfile
+      container_name: maildora_worker
+      env_file:
+        - apps/api/.env
+      environment:
+        - REDIS_HOST=redis
+        - REDIS_PORT=6379
+        - NODE_ENV=production
+      depends_on:
+        redis:
+          condition: service_healthy
+        api:
+          condition: service_healthy
+      restart: unless-stopped
+      networks:
+        - maildora_network
+      deploy:
+        resources:
+          limits:
+            cpus: '0.5'
+            memory: 512M
 
 # ===============================================================
 # REDIS
