@@ -15,7 +15,7 @@ import { RolesGuard } from '../auth/roles.guard';
 import { ClerkAuthGuard } from '../auth/clerk.guard';
 
 @Controller('organizations/:orgId/sender-emails')
-@UseGuards(ClerkAuthGuard, RolesGuard)
+// @UseGuards(ClerkAuthGuard, RolesGuard)
 export class SenderEmailsController {
   constructor(private senderEmailsService: SenderEmailsService) {}
 

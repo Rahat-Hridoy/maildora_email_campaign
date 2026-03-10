@@ -3,14 +3,20 @@ import {
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
 import { PrismaService } from '../../prisma.service';
 import { CreateCampaignDto } from './dto/create-campaign.dto';
 import { UpdateCampaignDto } from './dto/update-campaign.dto';
-import { CampaignStatus } from '@prisma/client';
+import { CampaignStatus, EmailStatus } from '@prisma/client';
+import { EMAIL_QUEUE, EMAIL_JOB, SendCampaignEmailJob } from '../queue/email.queue';
 
 @Injectable()
 export class CampaignsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    @InjectQueue(EMAIL_QUEUE) private emailQueue: Queue,
+  ) {}
 
   async findAll(
     organizationId: string,
@@ -203,7 +209,6 @@ export class CampaignsService {
     });
   }
 
-  // ─── Stats ───
   async getStats(organizationId: string) {
     const [total, draft, scheduled, sent, cancelled] = await Promise.all([
       this.prisma.campaign.count({ where: { organizationId } }),
@@ -222,5 +227,81 @@ export class CampaignsService {
     ]);
 
     return { total, draft, scheduled, sent, cancelled };
+  }
+
+  // ─── Campaign Send ───
+  async send(id: string, organizationId: string) {
+    const campaign = await this.findOne(id, organizationId);
+
+    if (
+      campaign.status !== CampaignStatus.DRAFT &&
+      campaign.status !== CampaignStatus.SCHEDULED
+    ) {
+      throw new BadRequestException(
+        'Only Draft or Scheduled campaigns can be sent',
+      );
+    }
+
+    if (!campaign.senderEmail.verified) {
+      throw new BadRequestException('Sender email not verified');
+    }
+
+    const contacts = await this.prisma.contact.findMany({
+      where: {
+        organizationId,
+        unsubscribed: false,
+      },
+    });
+
+    if (contacts.length === 0) {
+      throw new BadRequestException('No active contacts found');
+    }
+
+    await this.prisma.campaign.update({
+      where: { id },
+      data: { status: CampaignStatus.PROCESSING },
+    });
+
+    const recipients = await this.prisma.$transaction(
+      contacts.map((contact) =>
+        this.prisma.recipient.upsert({
+          where: {
+            campaignId_email: {
+              campaignId: id,
+              email: contact.email,
+            },
+          },
+          create: {
+            email: contact.email,
+            status: EmailStatus.PENDING,
+            campaignId: id,
+            contactId: contact.id,
+          },
+          update: {},
+        }),
+      ),
+    );
+
+    const jobs = recipients.map((recipient) => ({
+      name: EMAIL_JOB.SEND_CAMPAIGN_EMAIL,
+      data: {
+        campaignId: id,
+        recipientId: recipient.id,
+        to: recipient.email,
+        subject: campaign.subject,
+        body: campaign.body,
+        fromEmail: campaign.senderEmail.email,
+        fromName: campaign.senderEmail.email.split('@')[0],
+      } as SendCampaignEmailJob,
+    }));
+
+    await this.emailQueue.addBulk(jobs);
+
+    console.log(`✅ ${jobs.length} emails added to queue`);
+
+    return {
+      message: `${recipients.length} emails added to queue`,
+      total: recipients.length,
+    };
   }
 }

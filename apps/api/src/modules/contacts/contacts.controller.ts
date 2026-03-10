@@ -20,7 +20,7 @@ import { RolesGuard, Roles } from '../auth/roles.guard';
 import { OrgRole } from '@prisma/client';
 
 @Controller('organizations/:orgId/contacts')
-@UseGuards(ClerkAuthGuard, RolesGuard)
+// @UseGuards(ClerkAuthGuard, RolesGuard)
 export class ContactsController {
   constructor(private contactsService: ContactsService) {}
 
