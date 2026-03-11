@@ -21,7 +21,6 @@
   },
   "dependencies": {
     "@clerk/backend": "^3.0.1",
-    "@maildora/queue": "workspace:^",
     "@nestjs/bullmq": "^11.0.4",
     "@nestjs/common": "^11.0.1",
     "@nestjs/config": "^4.0.3",

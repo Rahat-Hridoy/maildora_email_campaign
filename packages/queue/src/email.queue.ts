@@ -16,6 +16,7 @@ export interface SendCampaignEmailJob {
   body: string;
   fromEmail: string;
   fromName: string;
+  userPlan?: string;
 }
 
 export interface SendBatchEmailJob {

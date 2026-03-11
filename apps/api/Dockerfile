@@ -11,7 +11,9 @@ COPY apps/api/tsconfig.json ./
 COPY apps/api/tsconfig.build.json ./
 COPY apps/api/nest-cli.json ./
 
+# @maildora/queue আগে local install, তারপর বাকি সব
 RUN npm install ./packages/queue
+RUN npm install --ignore-scripts
 RUN npm install
 
 RUN npx prisma generate

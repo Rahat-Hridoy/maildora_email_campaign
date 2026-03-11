@@ -1,11 +1,15 @@
-// queue/queue.module.ts
-
 import { Module } from '@nestjs/common';
 import { BullModule } from '@nestjs/bullmq';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { EmailProcessor } from './email.processor';
-import { EMAIL_QUEUE } from './email.queue';
 import { PrismaService } from '../../prisma.service';
+import { PRIORITY_QUEUE, BULK_QUEUE, RETRY_QUEUE } from '@maildora/queue';
+
+const defaultJobOptions = {
+  attempts: 3,
+  backoff: { type: 'exponential' as const, delay: 5000 },
+  removeOnComplete: 100,
+  removeOnFail: 50,
+};
 
 @Module({
   imports: [
@@ -13,26 +17,18 @@ import { PrismaService } from '../../prisma.service';
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => ({
         connection: {
-          host: configService.get('REDIS_HOST', 'localhost'),
+          host: configService.get('REDIS_HOST', 'redis'),
           port: configService.get<number>('REDIS_PORT', 6379),
         },
+        defaultJobOptions,
       }),
       inject: [ConfigService],
     }),
-    BullModule.registerQueue({
-      name: EMAIL_QUEUE,
-      defaultJobOptions: {
-        attempts: 3,
-        backoff: {
-          type: 'exponential',
-          delay: 5000,
-        },
-        removeOnComplete: 100,
-        removeOnFail: 50,
-      },
-    }),
+    BullModule.registerQueue({ name: PRIORITY_QUEUE }),
+    BullModule.registerQueue({ name: BULK_QUEUE }),
+    BullModule.registerQueue({ name: RETRY_QUEUE }),
   ],
-  providers: [EmailProcessor, PrismaService],
+  providers: [PrismaService],
   exports: [BullModule],
 })
 export class QueueModule {}

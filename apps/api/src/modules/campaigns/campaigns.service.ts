@@ -9,13 +9,14 @@ import { PrismaService } from '../../prisma.service';
 import { CreateCampaignDto } from './dto/create-campaign.dto';
 import { UpdateCampaignDto } from './dto/update-campaign.dto';
 import { CampaignStatus, EmailStatus } from '@prisma/client';
-import { EMAIL_QUEUE, EMAIL_JOB, SendCampaignEmailJob } from '../queue/email.queue';
+import { PRIORITY_QUEUE, BULK_QUEUE, EMAIL_JOB, SendCampaignEmailJob } from '@maildora/queue';
 
 @Injectable()
 export class CampaignsService {
   constructor(
     private prisma: PrismaService,
-    @InjectQueue(EMAIL_QUEUE) private emailQueue: Queue,
+    @InjectQueue(PRIORITY_QUEUE) private priorityQueue: Queue,
+    @InjectQueue(BULK_QUEUE) private bulkQueue: Queue,
   ) {}
 
   async findAll(
@@ -295,8 +296,8 @@ export class CampaignsService {
       } as SendCampaignEmailJob,
     }));
 
-    await this.emailQueue.addBulk(jobs);
-
+    const queue = this.priorityQueue;
+    await queue.addBulk(jobs);
     console.log(`✅ ${jobs.length} emails added to queue`);
 
     return {
