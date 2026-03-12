@@ -5,7 +5,10 @@ import { PrismaService } from '../prisma.service';
 import { BULK_QUEUE, EMAIL_JOB, SendCampaignEmailJob } from '@maildora/queue';
 import { EmailSender } from './email.sender';
 
-@Processor(BULK_QUEUE, { concurrency: 3 })
+@Processor(BULK_QUEUE, { 
+  concurrency: 3,
+  limiter: { max: 150, duration: 60000 },
+})
 export class BulkProcessor extends WorkerHost {
   constructor(
     private configService: ConfigService,
