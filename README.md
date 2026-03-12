@@ -1,159 +1,254 @@
-# Turborepo starter
+# Maildora
 
-This Turborepo starter is maintained by the Turborepo core team.
+### Scalable Email Campaign SaaS Platform
 
-## Using this example
+![Node](https://img.shields.io/badge/Node.js-20-green)
+![NestJS](https://img.shields.io/badge/NestJS-Backend-red)
+![NextJS](https://img.shields.io/badge/Next.js-Frontend-black)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Database-blue)
+![Redis](https://img.shields.io/badge/Redis-Queue-red)
+![Docker](https://img.shields.io/badge/Docker-Container-blue)
 
-Run the following command:
+**Maildora** is a scalable **Email Campaign SaaS platform** that allows organizations to send targeted email campaigns to their contacts, track campaign analytics, and manage team members.
 
-```sh
-npx create-turbo@latest
+The system is built using a **queue-driven** architecture to efficiently handle **large-scale** email delivery.
+
+---
+
+# Documentation
+
+The detailed documents are here: 
+
+- 📄 [Maildora Case Study](./public/doc/maildora_case_study_v2.pdf)
+- 📄 [Maildora System Architecture](./public/doc/maildora_architecture.pdf)
+
+---
+
+# System Architecture
+
+![Maildora Architecture](./public/images/Maildora%20Email%20Campaign%20System%20Architecture.png)
+
+Maildora use a **multi-layer architecture** 
+
+- HTTP Layer → API request handling  
+- Queue Layer → Job orchestration  
+- Processing Layer → Email sending workers  
+
+Core flow:
+
+Client → Nginx → API → Redis Queue → Worker → Brevo → PostgreSQL
+
+---
+
+# Tech Stack
+
+## Backend
+- NestJS
+- Prisma ORM
+- PostgreSQL (Neon)
+
+## Frontend
+- Next.js
+- Clerk Authentication
+
+## Queue System
+- BullMQ
+- Redis
+
+## Infrastructure
+- Docker
+- Nginx Reverse Proxy
+- Turborepo Monorepo
+
+## Email Provider
+- Brevo API
+
+---
+
+# Monorepo Structure
+
+```
+maildora_email_campaign/
+├── apps/
+│   ├── api/        → NestJS Backend (port 4000)
+│   ├── web/        → Next.js Frontend (port 3000)
+│   └── worker/     → NestJS Worker Service
+├── packages/
+│   └── queue/      → Shared Queue Types
+└── docker/
+    └── nginx/      → Nginx Reverse Proxy
+
+docker-compose.yml
+
+```
+---
+
+# Features
+
+## Multi-Tenancy
+- Organization based isolation
+- Role based access control
+- `organizationId` enforced in queries
+
+## Authentication (RBAC)
+- Clerk authentication
+- Email & OAuth (Google, GitHub) Login
+- Webhook based user sync
+
+## Contact Management
+- Contact CRUD
+- Pagination
+- Search
+- Bulk import
+
+## Campaign Management
+
+Campaign lifecycle:
+#### DRAFT → SCHEDULED → PROCESSING → SENT / CANCELLED
+
+Features:
+
+- Create campaign
+- Duplicate campaign
+- Send campaign
+- Cancel campaign
+
+## Email Queue System
+
+Email sending are handled asynchronously . 
+
+Flow:
+
+1. Contacts load  
+2. Recipient records create  
+3. Add to Jobs queue
+4. Send Email by Worker   
+
+Status flow:
+#### PENDING → QUEUED → SENT → FAILED
+
+
+Retry strategy:
+
+- 3 attempts
+- exponential backoff
+
+---
+
+# Multi Queue Architecture
+
+To avoid **Enterprise campaigns delay** used **multi-queue system** .
+
+|      Queue     |      Purpose     |      Rate      |
+|----------------|------------------|----------------|
+| priority-queue | Enterprise users |     150/min    |
+| bulk-queue     | Free users       |     150/min    |
+| retry-queue    | Failed jobs      |      retry     |
+
+Brevo free tier limit:
+300 emails/min
+
+---
+
+# Worker Architecture
+
+The benefits of Separate worker service : 
+
+Benefits:
+
+- API fast 
+- Worker easily scalable
+- Email load isolatalbe
+
+Flow:
+```
+User Request
+     ↓
+    API
+     ↓
+Redis Queue
+     ↓
+   Worker
+     ↓
+  Brevo API
 ```
 
-## What's inside?
+---
 
-This Turborepo includes the following packages/apps:
+# API Endpoints
 
-### Apps and Packages
+## Contacts
+- GET /organizations/:id/contacts
+- POST /organizations/:id/contacts
+- POST /organizations/:id/contacts/import
+- PATCH /organizations/:id/contacts/:cid
+- DELETE /organizations/:id/contacts/:cid
 
-- `docs`: a [Next.js](https://nextjs.org/) app
-- `web`: another [Next.js](https://nextjs.org/) app
-- `@repo/ui`: a stub React component library shared by both `web` and `docs` applications
-- `@repo/eslint-config`: `eslint` configurations (includes `eslint-config-next` and `eslint-config-prettier`)
-- `@repo/typescript-config`: `tsconfig.json`s used throughout the monorepo
 
-Each package/app is 100% [TypeScript](https://www.typescriptlang.org/).
+## Campaigns
+- GET /organizations/:id/campaigns
+- POST /organizations/:id/campaigns
+- POST /organizations/:id/campaigns/:cid/send
+- POST /organizations/:id/campaigns/:cid/duplicate
+- PATCH /organizations/:id/campaigns/:cid/cancel
+- DELETE /organizations/:id/campaigns/:cid
 
-### Utilities
 
-This Turborepo has some additional tools already setup for you:
+## Sender Emails
+- GET /organizations/:id/sender-emails
+- POST /organizations/:id/sender-emails
+- POST /organizations/:id/sender-emails/:sid/sync
+- DELETE /organizations/:id/sender-emails/:sid
 
-- [TypeScript](https://www.typescriptlang.org/) for static type checking
-- [ESLint](https://eslint.org/) for code linting
-- [Prettier](https://prettier.io) for code formatting
 
-### Build
+## Queue dashboard: 
 
-To build all apps and packages, run the following command:
+- /admin/queues 
 
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
 
-```sh
-cd my-turborepo
-turbo build
+---
+
+# Local Development Setup
+
+Clone repo
+
+```bash
+git clone https://github.com/Rahat-Hridoy/maildora_email_campaign
+cd maildora_email_campaign
+
+# Run Project 
+
+docker compose up -d
+
+# Services:
+Frontend  → http://localhost
+API       → http://localhost/api
+Queues    → http://localhost/admin/queues
 ```
+---
 
-Without global `turbo`, use your package manager:
+# Scaling Workers
 
-```sh
-cd my-turborepo
-npx turbo build
-yarn dlx turbo build
-pnpm exec turbo build
+**Workers horizontally scalalbe**
+
+Default : 
+```bash
+docker compose up -d
 ```
-
-You can build a specific package by using a [filter](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters):
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
-
-```sh
-turbo build --filter=docs
+Scale workers: 
+```bash
+docker compose up --scale worker=3 -d
 ```
+---
 
-Without global `turbo`:
+# Conclusion:
 
-```sh
-npx turbo build --filter=docs
-yarn exec turbo build --filter=docs
-pnpm exec turbo build --filter=docs
-```
+**Maildora** shows how a **scalable Email Campaign SaaS platform** can efficiently manage and deliver **large-scale** emails using a **queue-driven architecture**. This project highlights the benefits of **asynchronous email processing**, **organized campaign management**, and **multi-tenant system design**. While building this system, I implemented my skills in full-stack development using **Next.js**, **NestJS**, **Redis**, **PostgreSQL**, and **Prisma**. I also applied concepts like **API design**, **database modeling**, and **Docker-based containerization** to create a **scalable** and **production-ready** SaaS solution.
 
-### Develop
+----
+# Author
 
-To develop all apps and packages, run the following command:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
-
-```sh
-cd my-turborepo
-turbo dev
-```
-
-Without global `turbo`, use your package manager:
-
-```sh
-cd my-turborepo
-npx turbo dev
-yarn exec turbo dev
-pnpm exec turbo dev
-```
-
-You can develop a specific package by using a [filter](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters):
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
-
-```sh
-turbo dev --filter=web
-```
-
-Without global `turbo`:
-
-```sh
-npx turbo dev --filter=web
-yarn exec turbo dev --filter=web
-pnpm exec turbo dev --filter=web
-```
-
-### Remote Caching
-
-> [!TIP]
-> Vercel Remote Cache is free for all plans. Get started today at [vercel.com](https://vercel.com/signup?utm_source=remote-cache-sdk&utm_campaign=free_remote_cache).
-
-Turborepo can use a technique known as [Remote Caching](https://turborepo.dev/docs/core-concepts/remote-caching) to share cache artifacts across machines, enabling you to share build caches with your team and CI/CD pipelines.
-
-By default, Turborepo will cache locally. To enable Remote Caching you will need an account with Vercel. If you don't have an account you can [create one](https://vercel.com/signup?utm_source=turborepo-examples), then enter the following commands:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
-
-```sh
-cd my-turborepo
-turbo login
-```
-
-Without global `turbo`, use your package manager:
-
-```sh
-cd my-turborepo
-npx turbo login
-yarn exec turbo login
-pnpm exec turbo login
-```
-
-This will authenticate the Turborepo CLI with your [Vercel account](https://vercel.com/docs/concepts/personal-accounts/overview).
-
-Next, you can link your Turborepo to your Remote Cache by running the following command from the root of your Turborepo:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
-
-```sh
-turbo link
-```
-
-Without global `turbo`:
-
-```sh
-npx turbo link
-yarn exec turbo link
-pnpm exec turbo link
-```
-
-## Useful Links
-
-Learn more about the power of Turborepo:
-
-- [Tasks](https://turborepo.dev/docs/crafting-your-repository/running-tasks)
-- [Caching](https://turborepo.dev/docs/crafting-your-repository/caching)
-- [Remote Caching](https://turborepo.dev/docs/core-concepts/remote-caching)
-- [Filtering](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters)
-- [Configuration Options](https://turborepo.dev/docs/reference/configuration)
-- [CLI Usage](https://turborepo.dev/docs/reference/command-line-reference)
+### Md Rahatul Islam 
+**[Full Stack Developer]**
+- Email : rahathridoyd2x@gmail.com
+- Phone : +880 1917 579030
