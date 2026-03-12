@@ -21,7 +21,7 @@ export class EmailProcessor extends WorkerHost {
   }
 
   async process(job: Job): Promise<void> {
-    console.log('🔄 Job processing:', job.name, job.id);
+    console.log('Job processing:', job.name, job.id);
 
     if (job.name === EMAIL_JOB.SEND_CAMPAIGN_EMAIL) {
       await this.handleSendCampaignEmail(job.data as SendCampaignEmailJob);

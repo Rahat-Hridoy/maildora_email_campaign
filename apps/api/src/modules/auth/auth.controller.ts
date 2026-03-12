@@ -15,11 +15,9 @@ export class AuthController {
     });
   }
 
-  // GET /auth/me
   @Get('me')
   @UseGuards(ClerkAuthGuard)
   async getMe(@Request() req) {
-    // Clerk থেকে full user data নাও
     const clerkUser = await this.clerkClient.users.getUser(
       req.clerkUserId,
     );

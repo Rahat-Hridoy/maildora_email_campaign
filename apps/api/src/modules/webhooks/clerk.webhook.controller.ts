@@ -44,13 +44,11 @@ export class ClerkWebhookController {
 
     switch (type) {
 
-      case 'user.created': {
-        // ✅ primary_email_address_id দিয়ে email খোঁজো
+    case 'user.created': {
         const primaryEmail = data.email_addresses?.find(
           (e: any) => e.id === data.primary_email_address_id,
         )?.email_address;
 
-        // ✅ না পেলে প্রথমটা নাও
         const firstEmail =
           data.email_addresses?.length > 0
             ? data.email_addresses[0].email_address
@@ -59,14 +57,13 @@ export class ClerkWebhookController {
         const email: string | null = primaryEmail ?? firstEmail ?? null;
 
         if (!email) {
-          console.log('⚠️ Test webhook — email নেই, skip করছি');
+          console.log('Test webhook — not found email , skip ');
           break;
         }
 
         const firstName: string = data.first_name ?? '';
         const lastName: string = data.last_name ?? '';
-        const name =
-          `${firstName} ${lastName}`.trim() || email.split('@')[0];
+        const name = `${firstName} ${lastName}`.trim() || email.split('@')[0];
         const slug = `${name.toLowerCase().replace(/\s+/g, '-')}-${Date.now()}`;
 
         try {
@@ -89,9 +86,9 @@ export class ClerkWebhookController {
               },
             },
           });
-          console.log('✅ User তৈরি হয়েছে:', email);
+          console.log('Successfully created user:', email);
         } catch (err) {
-          console.error('❌ User তৈরিতে error:', err);
+          console.error('Error creating user:', err);
         }
         break;
       }
@@ -109,9 +106,9 @@ export class ClerkWebhookController {
               avatar: data.image_url || null,
             },
           });
-          console.log('✅ User update হয়েছে:', data.id);
+          console.log('Successfully updated user:', data.id);
         } catch (err) {
-          console.error('❌ User update এ error:', err);
+          console.error('Error updating user:', err);
         }
         break;
       }
@@ -121,9 +118,9 @@ export class ClerkWebhookController {
           await this.prisma.user.delete({
             where: { id: data.id },
           });
-          console.log('✅ User delete হয়েছে:', data.id);
+          console.log('Successfully deleted user:', data.id);
         } catch (err) {
-          console.error('❌ User delete এ error:', err);
+          console.error('Error deleting user:', err);
         }
         break;
       }

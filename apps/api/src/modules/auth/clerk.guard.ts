@@ -19,7 +19,7 @@ export class ClerkAuthGuard implements CanActivate {
   ) {
     this.clerkClient = createClerkClient({
       secretKey: this.configService.get('CLERK_SECRET_KEY'),
-      publishableKey: this.configService.get('CLERK_PUBLISHABLE_KEY'), // ✅ এটা যোগ করো
+      publishableKey: this.configService.get('CLERK_PUBLISHABLE_KEY'),
     });
   }
 
@@ -32,12 +32,11 @@ export class ClerkAuthGuard implements CanActivate {
     }
 
     try {
-      // ✅ authorizedParties যোগ করো
       const payload = await this.clerkClient.verifyToken(token, {
         authorizedParties: ['http://localhost:3000'],
       });
 
-      console.log('✅ Token valid, userId:', payload.sub);
+      console.log(' Token valid, userId:', payload.sub);
 
       const user = await this.prisma.user.findUnique({
         where: { id: payload.sub },
@@ -49,14 +48,14 @@ export class ClerkAuthGuard implements CanActivate {
       });
 
       if (!user) {
-        throw new UnauthorizedException('User পাওয়া যায়নি');
+        throw new UnauthorizedException('User not found');
       }
 
       request['user'] = user;
       request['clerkUserId'] = payload.sub;
 
     } catch (error: unknown) {
-      console.error('❌ Error:', error); // ✅ exact error দেখো
+      console.error(' Error:', error);
       if (error instanceof UnauthorizedException) throw error;
       throw new UnauthorizedException('Token invalid');
     }
